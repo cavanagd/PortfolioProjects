@@ -1,0 +1,155 @@
+--Rough analysis of covid19 dataset
+--Will add tableau later
+
+--SELECT  * 
+--FROM `learning-413607.covid1.CovidDeaths`
+--ORDER BY 3,4 
+--LIMIT 1000 
+
+--SELECT Location, date, Population, total_cases,
+--(total_cases/Population)*100 as DeathPercentage
+--FROM `learning-413607.covid1.CovidDeaths`
+--ORDER BY 1,2 
+
+--Looking at countries with highest infection rate compared to population
+
+--You need a GROUP BY statement for this to work (Because there's an aggregate function)
+SELECT Location, Population, MAX(total_cases) as HighestInfectionCount,
+MAX(total_cases/Population)*100 as PercentPopulationInfected
+FROM `learning-413607.covid1.CovidDeaths`
+GROUP BY Location,Population
+ORDER BY PercentPopulationInfected DESC
+
+--Showing countries with highest death count per population
+--need to exclude continents
+--to do that, add WHERE statement WHERE continent is not null
+--This is because data includes aggregates for total continent in location but data in continent column is null when aggregating
+SELECT Location, MAX(total_deaths) as TotalDeathCount
+FROM `learning-413607.covid1.CovidDeaths`
+WHERE continent is not null
+GROUP BY Location
+ORDER BY TotalDeathCount DESC
+
+--Break down by continent
+--PROBLEM! North America only seems to show US numbers
+--Modified query to WHERE continent is null and select by location
+SELECT Location, MAX(total_deaths) as TotalDeathCount
+FROM `learning-413607.covid1.CovidDeaths`
+WHERE continent is null
+GROUP BY Location
+ORDER BY TotalDeathCount DESC
+
+--Global Numbers
+--Gives a daily death percentage
+--remove references to date to get total numbers
+SELECT date, SUM(new_cases) as total_cases,
+SUM(new_deaths) as total_deaths,
+SUM(new_deaths)/SUM(new_cases)*100 as DeathPercentage
+-- total_cases,total_deaths,
+--(total_deaths/total_cases)*100 as DeathPercentage
+FROM `learning-413607.covid1.CovidDeaths`
+WHERE continent is not null
+GROUP BY date
+ORDER BY 1,2
+
+--Looking at total pop vs vax
+--Add a running total with Partition by then order by
+
+SELECT dea.continent, dea.location, dea.date, dea.population, vax.new_vaccinations,
+SUM (vax.new_vaccinations) OVER (Partition by dea.Location ORDER BY dea.location,dea.date) as RollingVax
+FROM `learning-413607.covid1.CovidDeaths` dea
+JOIN `learning-413607.covid1.CovidVaccinations` vax
+  ON dea.Location = vax.Location
+  and dea.date = vax.date
+WHERE dea.continent is not null
+  and dea.Location = 'Albania'
+ORDER BY 2,3
+
+--USE CTE
+--If number of columns in CTE is different you'll have error
+
+WITH PopsVsVax (Continent, Location, date, population, new_vaccinations, RollingVax) as (
+SELECT dea.continent, dea.location, dea.date, dea.population, vax.new_vaccinations,
+SUM (vax.new_vaccinations) OVER (Partition by dea.Location ORDER BY dea.location,dea.date) as RollingVax
+FROM `learning-413607.covid1.CovidDeaths` dea
+JOIN `learning-413607.covid1.CovidVaccinations` vax
+  ON dea.Location = vax.Location
+  and dea.date = vax.date
+WHERE dea.continent is not null
+)
+SELECT *
+FROM PopsVsVax
+
+--The above query did not work
+--Ran code through chatgpt!
+--Bloody syntax error
+--fixed code below
+--added column to give rolling vax number
+--the advantage of a temp table here shows extra column with these calcs
+
+WITH PopsVsVax AS (
+    SELECT 
+        dea.continent, 
+        dea.location, 
+        dea.date, 
+        dea.population, 
+        vax.new_vaccinations,
+        SUM(vax.new_vaccinations) OVER (PARTITION BY dea.Location ORDER BY dea.date) AS RollingVax
+    FROM 
+        `learning-413607.covid1.CovidDeaths` dea
+    JOIN 
+        `learning-413607.covid1.CovidVaccinations` vax
+    ON 
+        dea.Location = vax.Location
+        AND dea.date = vax.date
+    WHERE 
+        dea.continent IS NOT NULL
+)
+SELECT *, (RollingVax/Population)*100
+FROM PopsVsVax;
+
+--Temp Table
+--I created a temp table
+--used chatgpt for bigquery compatibility
+--Can now use in joins etc
+
+CREATE TABLE covid1.PercentPopulationVaccinated AS
+SELECT 
+    dea.continent, 
+    dea.location, 
+    dea.date, 
+    dea.population, 
+    vax.new_vaccinations,
+    SUM(vax.new_vaccinations) OVER (PARTITION BY dea.Location ORDER BY dea.date) AS RollingVax,
+    (SUM(vax.new_vaccinations) OVER (PARTITION BY dea.Location ORDER BY dea.date) / dea.population) * 100 AS PercentPopulationVaccinated
+FROM 
+    `learning-413607.covid1.CovidDeaths` dea
+JOIN 
+    `learning-413607.covid1.CovidVaccinations` vax
+ON 
+    dea.Location = vax.Location
+    AND dea.date = vax.date
+WHERE 
+    dea.continent IS NOT NULL;
+
+
+
+--Bit awkward to create views in bigquery but this should work
+CREATE VIEW covid1.PercentPopulationVaccinated1 AS
+SELECT 
+    dea.continent, 
+    dea.location, 
+    dea.date, 
+    dea.population,
+    vax.new_vaccinations,
+    SUM(vax.new_vaccinations) OVER (PARTITION BY dea.Location ORDER BY dea.location, dea.date) AS RollingPeopleVaccinated
+FROM 
+    `learning-413607.covid1.CovidDeaths` dea
+JOIN 
+    `learning-413607.covid1.CovidVaccinations` vax
+ON 
+    dea.location = vax.location
+    AND dea.date = vax.date
+WHERE 
+    dea.continent IS NOT NULL;
+
