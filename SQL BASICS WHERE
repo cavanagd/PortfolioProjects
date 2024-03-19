@@ -50,3 +50,149 @@ WHERE
     AND job NOT LIKE '%Senior%'
 --Putting parantheses in order so that we first filter for data or business wildcards and 
 --then include Analyst. Use NOT LIKE to exclude Senior from the search
+
+/*  
+--Use +5 or -5 in a new column to show differences 
+--so you'll have a new column, one with the old rate, one with the new one
+--useful for comparisons
+SELECT 
+	project_company, 
+    nerd_id, 
+    nerd_role, 
+    hours_rate AS rate_original,
+    hours_rate +5 AS rate_hike
+FROM invoices_fact
+*\ 
+
+--Here we look at a new column project total which is the new total spend with the new rate hike
+--also filtered down where project total > 1000
+SELECT 
+	project_company, 
+    nerd_id, 
+    nerd_role, 
+    hours_spent,
+    hours_rate AS rate_original,
+    hours_rate +5 AS rate_hike,
+    (hours_rate + 5) * hours_spent AS project_total
+FROM 
+	invoices_fact
+WHERE
+	project_total > 1000
+
+--% is modulus operator (for non math freaks, the modulus is the remainder after dividing one number by another.
+--                         For example, with a modulus of 8, and the original number of 10, the answer will be 2. 
+--                         BASICALLY, we're looking at people who've done more than 8 hours and counting how many 
+--                         hours they did)
+--creating new column for extra hours to visualise the difference
+--Using WHERE statement to filter out people who have more than 0 extra hours
+
+SELECT 
+	activity_id, 
+    hours_spent, 
+    hours_spent % 8 AS extra_hours
+FROM
+	invoices_fact
+WHERE
+	(hours_spent BETWEEN 8 AND 16) AND
+ 	extra_hours > 0
+ORDER BY
+	hours_spent
+
+--Here I'm creating an efficiency ratio column that looks at bang for buck. One guy did 2619 hours for a tenner an hour
+--But is his work good?
+--the higher the ratio, the better value for money
+
+SELECT
+	activity_id, 
+	hours_spent, 
+    hours_rate, 
+    hours_spent / hours_rate AS efficiency_ratio
+FROM
+	invoices_fact
+WHERE
+	hours_spent > 50
+ORDER BY
+	efficiency_ratio DESC
+
+--Here we broke down the average salary of the different jobs. Start with jobs column then
+--salary avg then min then max, we group by job title and order by salary avg 
+--This will return ten jobs (There is a distinct count of ten in the dataset)  
+--Broken down by average salary per job titles with the min and max displayed
+
+SELECT 
+	job_title_short AS jobs, 
+	AVG(salary_year_avg) AS salary_avg,
+    MIN(salary_year_avg) AS min, 
+    MAX(salary_year_avg) AS max
+FROM 
+	job_postings_fact
+GROUP BY
+	job_title_short
+ORDER BY
+	salary_avg
+
+
+--Here we added a job count column and we could see some jobs had less than a hundred listings
+--which skewed the data somewhat. So I introduced a HAVING condition to the GROUP BY statement
+--to exclude jobs with less than 100 listings
+
+SELECT 
+	job_title_short AS jobs, 
+    COUNT(job_title_short) AS job_count, 
+	AVG(salary_year_avg) AS salary_avg,
+    MIN(salary_year_avg) AS min, 
+    MAX(salary_year_avg) AS max
+FROM 
+	job_postings_fact
+GROUP BY
+	job_title_short
+HAVING
+	COUNT(job_title_short) > 100
+ORDER BY
+	salary_avg
+
+--In this query, we're looking at jobs that offer health insurance
+SELECT 
+	COUNT (job_health_insurance) AS Benefits, 
+    job_title
+FROM 
+	job_postings_fact
+GROUP BY
+	job_title_short
+HAVING
+	job_health_insurance >= 1
+
+--In this one, we're making a table that counts jobs by country. No surprise USA is number 1... followed by Sudan?
+--So I double checked this. There are over 2000 jobs listed with job country as Sudan. 
+--However many of the job locations are actually in the USA
+--The second query is more clarifying. Seems ALL of the US jobs are listed in San Jose. I had to clean with Trim function
+SELECT 
+	COUNT (DISTINCT job_id) AS country,  
+    job_country
+FROM 
+	job_postings_fact
+GROUP BY
+	job_country
+ORDER BY
+	country DESC;
+
+SELECT 
+    COUNT(DISTINCT job_id) AS num_jobs,
+    TRIM(job_location) AS cleaned_location
+FROM 
+    job_postings_fact
+GROUP BY
+    job_location
+ORDER BY
+    num_jobs DESC;;
+
+--Here we create a table that looks at the effect of a rate hike on project cost
+
+SELECT
+	project_id,
+    SUM(hours_spent * hours_rate) AS original_cost, 
+    SUM(hours_spent * (hours_rate + 5)) AS new_cost
+FROM 
+	invoices_fact
+GROUP BY
+	project_id
