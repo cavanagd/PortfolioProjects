@@ -18,3 +18,22 @@ WHERE
 
 -- () parantheses are important, it instructs the query to run it in order of importance
 -- in other words, start with the criteria below in the where statement
+
+-- Wildcards
+-- Use '%word%' to include both sides
+-- put a % before the word or after to get different results
+-- use '%Business_Analyst%' an UNDERSCORE to bring both words together or search both
+SELECT 
+	name
+FROM company_dim
+WHERE
+	name LIKE 'tech%';
+    
+/* SELECT
+	job_title,
+    job_id, 
+    job_posted_date
+FROM
+	job_postings_fact
+WHERE
+	job_title LIKE 'Engineer%'; *\
