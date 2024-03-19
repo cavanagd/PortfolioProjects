@@ -37,3 +37,16 @@ FROM
 	job_postings_fact
 WHERE
 	job_title LIKE 'Engineer%'; *\
+
+SELECT
+	job_title AS job, 
+    job_location AS location, 
+    salary_year_avg AS salary
+FROM
+	job_postings_fact
+WHERE
+	(job LIKE '%Data%' OR job LIKE '%Business%')
+    AND job LIKE '%Analyst%'
+    AND job NOT LIKE '%Senior%'
+--Putting parantheses in order so that we first filter for data or business wildcards and 
+--then include Analyst. Use NOT LIKE to exclude Senior from the search
