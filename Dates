@@ -1,0 +1,54 @@
+SELECT job_posted_date
+FROM job_postings_fact
+LIMIT 100
+
+--Cast date
+--You can cast by using double colon ::
+
+SELECT
+    '2023-02-19'::DATE,
+    '123'::INTEGER,
+    'true'::BOOLEAN,
+    '3.14'::REAL;
+
+--Here we can clean up the date column if necessary to remove the timestamp
+--we're casting ::DATE as date in order to convert to regular date format
+SELECT
+    job_title_short AS title, 
+    job_location AS location, 
+    job_posted_date::DATE AS date 
+FROM job_postings_fact
+LIMIT 100;
+
+--Need to careful with timestamps and timezone
+--Here I'm converting UTC to EST time
+--Run the query with default first then add AT TIME ZONE if unsure
+SELECT
+    job_title_short AS title, 
+    job_location AS location, 
+    job_posted_date AT TIME ZONE 'UTC' AT TIME ZONE 'EST'
+FROM job_postings_fact
+LIMIT 100;
+
+--USE extract to get a field from the date. Used in SELECT statement
+--You can extract MONTH, YEAR etc
+SELECT
+    job_title_short AS title, 
+    job_location AS location, 
+    job_posted_date AT TIME ZONE 'UTC' AT TIME ZONE 'EST' AS date_time,
+    EXTRACT(MONTH FROM job_posted_date) as date_month,
+    EXTRACT(YEAR FROM job_posted_date) as date_year
+FROM job_postings_fact
+LIMIT 100;
+
+--Now I want to make a table that breaks up job postings by month
+SELECT  
+    COUNT(job_id),
+    EXTRACT(MONTH FROM job_posted_date) AS month 
+FROM
+    job_postings_fact
+GROUP BY
+    month 
+ORDER BY 
+    month 
+
