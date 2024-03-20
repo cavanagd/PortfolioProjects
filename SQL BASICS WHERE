@@ -196,3 +196,21 @@ FROM
 	invoices_fact
 GROUP BY
 	project_id
+
+--We want to join the skills table to the skills job id table
+--Use left join to bring these together then break down the number of postings using count
+--Use a second join to bring in the job postings fact table
+--then use the AVG function to find out the average salary for skill
+
+
+SELECT 
+	skills.skills as skill_name,
+    COUNT(skills_to_job.job_id) AS number_of_job_postings,
+    AVG(job_postings.salary_year_avg) as average_salary_for_skill
+FROM skills_dim as skills 
+LEFT JOIN skills_job_dim as skills_to_job ON skills.skill_id = skills_to_job.skill_id
+LEFT JOIN job_postings_fact as job_postings ON skills_to_job.job_id = job_postings.job_id
+GROUP BY
+	skills.skills
+ORDER BY
+	average_salary_for_skill DESC
