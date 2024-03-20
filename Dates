@@ -52,3 +52,105 @@ GROUP BY
 ORDER BY 
     month 
 
+--Create table to find avg salary annually and hourly (After June 1st 2023)
+SELECT
+    job_title_short AS title,
+    AVG(salary_year_avg) AS per_annum,
+    AVG(salary_hour_avg) AS per_hour
+FROM
+    job_postings_fact
+WHERE
+    job_posted_date >= '01-06-2023'
+GROUP BY
+    job_title_short
+
+--job posted by month, adjusting timezone from EST to UTC
+--Check by reversing order of timezone to see slight difference
+SELECT  
+    COUNT(job_id),
+    EXTRACT(MONTH FROM job_posted_date AT TIME ZONE 'EST' AT TIME ZONE 'UTC') AS month 
+FROM
+    job_postings_fact
+GROUP BY
+    month 
+ORDER BY 
+    month;
+
+--Filter job postings by quarter by company that provide health insurance
+--First I extract the quarter
+--then I count all job openings and call it without insurance
+--Then I join the company dim table with company ids
+--I filter by health insurance
+--then group and order by quarter
+--HOWEVER, after a lot of trial and error I since learned that there was no need to do joins
+--Refer to later queries for exact answers
+--lots of trial and error here, but I got there in the end!
+
+SELECT
+    EXTRACT(quarter FROM jp.job_posted_date) AS quarter,
+    COUNT(*) AS without_health_insurance
+FROM
+    job_postings_fact jp
+LEFT JOIN 
+    company_dim cd ON jp.company_id = cd.company_id
+WHERE 
+    jp.job_health_insurance = 'FALSE'
+GROUP BY
+    quarter
+ORDER BY
+    quarter;
+
+WITH health_insurance_stats AS (
+    SELECT
+        EXTRACT(quarter FROM jp.job_posted_date) AS quarter,
+        COUNT(DISTINCT CASE WHEN jp.job_health_insurance = 'TRUE' THEN jp.company_id END) AS companies_with_health_insurance,
+        COUNT(DISTINCT jp.company_id) AS total_companies
+    FROM
+        job_postings_fact jp
+    LEFT JOIN 
+        company_dim cd ON jp.company_id = cd.company_id
+    GROUP BY
+        quarter
+)
+SELECT
+    quarter,
+    ROUND((companies_with_health_insurance::NUMERIC / total_companies) * 100, 2) AS percentage_of_companies_with_health_insurance
+FROM
+    health_insurance_stats
+ORDER BY
+    quarter;
+
+SELECT
+    EXTRACT(quarter FROM jp.job_posted_date) AS quarter,
+    COUNT(*) AS total_job_postings
+FROM
+    job_postings_fact jp
+GROUP BY
+    quarter
+ORDER BY
+    quarter;
+
+
+SELECT
+    EXTRACT(quarter FROM jp.job_posted_date) AS quarter,
+    COUNT(*) AS total_job_postings
+FROM
+    job_postings_fact jp
+WHERE
+    job_health_insurance = 'TRUE'
+GROUP BY
+    quarter
+ORDER BY
+
+--Use round function as well as AVG to find out the % of postings with health insurance. Also case statement
+SELECT
+    EXTRACT(quarter FROM job_posted_date) AS quarter,
+    ROUND(AVG(CASE WHEN job_health_insurance = 'TRUE' THEN 100.0 ELSE 0 END), 2) AS percentage_with_health_insurance
+FROM
+    job_postings_fact
+GROUP BY
+    quarter
+ORDER BY
+    quarter;
+
+
