@@ -1,0 +1,51 @@
+--I want to label anywhere jobs as remote
+--New York, NY jobs to be labelled as 'local'
+--Otherwise 'Onsite'
+--This will create a new column that splits the job search up into the 3 categories
+
+
+SELECT  
+    job_title_short,
+    job_location,
+    CASE
+        WHEN job_location = 'Anywhere' THEN 'Remote'
+        WHEN job_location = 'New York,NY' THEN 'Local'
+        ELSE 'Onsite'
+    END AS location_category
+FROM job_postings_fact;
+
+--Now for more analysis
+--I've filtered all jobs by just the 3 categories
+--Then WHERE statement for just data analyst
+
+SELECT  
+    COUNT(job_id) AS number_of_jobs,
+    CASE
+        WHEN job_location = 'Anywhere' THEN 'Remote'
+        WHEN job_location = 'New York, NY' THEN 'Local'
+        ELSE 'Onsite'
+    END AS location_category
+FROM job_postings_fact
+WHERE 
+    job_title_short = 'Data Analyst'
+GROUP BY
+    location_category;
+
+-- Here we're breaking it down by number of jobs available according to 3 buckets
+-- Important to add the WHERE IS NOT NULL condition otherwise data is skewed (if you want to exclude the 4th bucket of when salary is null then no salary listed)
+--if you add the no salary listed case, don't filter with where
+SELECT  
+    COUNT(job_id) AS number_of_jobs,
+    CASE
+        WHEN salary_year_avg > 120000 THEN 'High'
+        WHEN salary_year_avg BETWEEN 80000 AND 120000 THEN 'Average'
+        WHEN salary_year_avg IS NULL THEN 'No Salary Listed'
+        ELSE 'Low'
+    END AS salary_category
+FROM job_postings_fact
+WHERE
+    job_title_short = 'Data Analyst'
+GROUP BY
+    salary_category
+ORDER BY
+    number_of_jobs DESC;
