@@ -1,0 +1,106 @@
+--Subquery
+SELECT *
+FROM (SELECT*
+FROM job_postings_fact
+WHERE EXTRACT(MONTH FROM job_posted_date) = 1
+) AS january_jobs
+
+--CTEs
+WITH january_jobs AS(
+    SELECT *
+    FROM job_postings_fact
+    WHERE EXTRACT(MONTH FROM job_posted_date) = 1
+)
+
+SELECT *
+FROM january_jobs;
+
+
+--Using a subquery here to pull company name from company dim table using company id as key
+SELECT name AS name  
+FROM company_dim
+WHERE company_id IN(
+SELECT 
+    company_id
+FROM 
+    job_postings_fact
+WHERE
+    job_no_degree_mention = TRUE
+)
+
+--Find the companies with the most job openings
+--get the total number of job postings per company id
+--return the total number of jobs with the company name
+--First create a table that counts the number of jobs per company id
+--then incorporate it into your CTE
+--Then you can use temp table company_job_count in future queries
+
+WITH company_job_count AS(
+SELECT
+    company_id,
+    COUNT(*) AS total_jobs
+FROM 
+    job_postings_fact
+GROUP BY
+    company_id
+)
+
+SELECT 
+    company_dim.name AS company_name,
+    company_job_count.total_jobs
+FROM 
+    company_dim
+LEFT JOIN company_job_count 
+ON company_job_count.company_id = company_dim.company_id
+ORDER BY total_jobs DESC
+
+--Find the top 5 skills that are most frequently mentioned
+--CTE to find the skill ids with the highest counts
+--join the result with skills_dim to get the names
+
+WITH skill_count AS(
+SELECT 
+    skill_id,
+    COUNT(*) AS total_skills
+FROM
+    skills_job_dim
+GROUP BY
+    skill_id
+)
+SELECT
+    skills_dim.skills AS skills,
+    skill_count.total_skills AS total_skills
+FROM
+    skills_dim
+LEFT JOIN skill_count 
+ON skill_count.skill_id = skills_dim.skill_id
+ORDER BY total_skills DESC
+LIMIT 5
+
+--Determine the size category (small, medium or large) for each company based on their number of postings
+--small = < 10, medium = 10 > 50, large = >50
+--CTE to categorise into buckets then run
+
+WITH company_job_count AS (
+    SELECT
+        company_id,
+        COUNT(*) AS total_jobs
+    FROM 
+        job_postings_fact
+    GROUP BY
+        company_id
+)
+SELECT 
+    company_dim.name AS company_name,
+    company_job_count.total_jobs,
+    CASE 
+        WHEN company_job_count.total_jobs < 10 THEN 'small'
+        WHEN company_job_count.total_jobs BETWEEN 10 AND 50 THEN 'medium'
+        ELSE 'large'
+    END AS job_opening_category
+FROM 
+    company_dim
+LEFT JOIN company_job_count 
+ON company_job_count.company_id = company_dim.company_id
+ORDER BY 
+    total_jobs DESC;
